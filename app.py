@@ -1,17 +1,26 @@
 import sys
 import os
 
-# Ensure OpenCV can be imported
+# Ensure packages are installed
 try:
     import cv2
 except ImportError:
+    print("Installing OpenCV...")
     os.system(f"{sys.executable} -m pip install opencv-python --quiet")
     import cv2
 
 import streamlit as st
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
+
+try:
+    import tensorflow as tf
+    from tensorflow import keras
+except ImportError:
+    print("Installing TensorFlow...")
+    os.system(f"{sys.executable} -m pip install tensorflow --quiet")
+    import tensorflow as tf
+    from tensorflow import keras
+
 import tempfile
 from pathlib import Path
 
@@ -132,8 +141,8 @@ def process_video(video_path, model, progress_bar, status_text, alpha):
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         
-        if fps == 0:
-            fps = 30  # Default FPS if not available
+        if fps == 0 or fps is None:
+            fps = 30
         
         # Calculate new dimensions
         aspect_ratio = width / height
@@ -196,7 +205,7 @@ def process_video(video_path, model, progress_bar, status_text, alpha):
             
             # Update progress
             progress = frame_count / total_frames
-            progress_bar.progress(progress)
+            progress_bar.progress(min(progress, 0.99))
             status_text.text(f"Processing frame {frame_count}/{total_frames}")
         
         cap.release()
@@ -206,6 +215,8 @@ def process_video(video_path, model, progress_bar, status_text, alpha):
         
     except Exception as e:
         st.error(f"Error during processing: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
 
@@ -269,7 +280,7 @@ def main():
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
             
-            if fps == 0:
+            if fps == 0 or fps is None:
                 fps = 30
             
             duration = total_frames / fps if fps > 0 else 0
@@ -355,14 +366,17 @@ def main():
                 else:
                     st.error("Error processing video")
             
-            # Cleanup temp file after use
+            # Cleanup temp file
             try:
-                os.unlink(temp_video_path)
+                if os.path.exists(temp_video_path):
+                    os.unlink(temp_video_path)
             except:
                 pass
                 
         except Exception as e:
             st.error(f"Error: {str(e)}")
+            import traceback
+            st.error(traceback.format_exc())
     
     else:
         st.info("👆 Please upload a video file to get started")
