@@ -1,38 +1,17 @@
-#!/usr/bin/env python3
-import subprocess
-import sys
-import os
-
-# Install required packages before importing
-packages = [
-    'opencv-python',
-    'tensorflow-cpu',
-    'numpy',
-    'pillow',
-    'streamlit'
-]
-
-print("Checking and installing dependencies...")
-for package in packages:
-    try:
-        __import__(package.replace('-', '_'))
-        print(f"✓ {package} already installed")
-    except ImportError:
-        print(f"Installing {package}...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package, "-q"])
-
-# Now import after ensuring packages exist
-import cv2
 import streamlit as st
+import cv2
 import numpy as np
-from tensorflow import keras
 import tempfile
+import os
+from pathlib import Path
 
-print("✓ All imports successful")
+# Lazy import for TensorFlow only when needed
+def load_tensorflow():
+    import tensorflow as tf
+    from tensorflow import keras
+    return keras
 
-# ========================================
-# PAGE CONFIG
-# ========================================
+# Page configuration
 st.set_page_config(
     page_title="Lane Detection",
     page_icon="🛣️",
@@ -53,6 +32,7 @@ MAX_VIDEO_HEIGHT = 720
 # ========================================
 @st.cache_resource
 def load_model():
+    keras = load_tensorflow()
     model_path = 'best_lane_model_stage2.h5'
     if not os.path.exists(model_path):
         st.error("❌ Model file not found: best_lane_model_stage2.h5")
@@ -228,44 +208,47 @@ if uploaded_file:
     col4.metric("FPS", f"{fps:.1f}")
     
     if st.button("🚀 Process Video", use_container_width=True, type="primary"):
-        model = load_model()
-        
-        st.markdown("---")
-        st.subheader("⏳ Processing...")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        result = process_video(temp_path, model, progress_bar, status_text, alpha)
-        
-        if result:
-            output_path, new_width, new_height, output_fps, processed_frames = result
+        try:
+            model = load_model()
             
-            progress_bar.empty()
-            status_text.empty()
-            
-            st.success("✅ Video processing completed!")
             st.markdown("---")
+            st.subheader("⏳ Processing...")
             
-            col1, col2 = st.columns(2)
-            col1.metric("Output Resolution", f"{new_width}x{new_height}")
-            col2.metric("Frames Processed", processed_frames)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
             
-            col1, col2 = st.columns(2)
-            col1.metric("Output FPS", f"{output_fps:.1f}")
-            file_size = os.path.getsize(output_path) / (1024 * 1024)
-            col2.metric("File Size", f"{file_size:.2f} MB")
+            result = process_video(temp_path, model, progress_bar, status_text, alpha)
             
-            with open(output_path, "rb") as f:
-                st.download_button(
-                    "📥 Download Processed Video",
-                    f.read(),
-                    "lane_detection_output.mp4",
-                    "video/mp4",
-                    use_container_width=True
-                )
-            
-            os.unlink(output_path)
+            if result:
+                output_path, new_width, new_height, output_fps, processed_frames = result
+                
+                progress_bar.empty()
+                status_text.empty()
+                
+                st.success("✅ Video processing completed!")
+                st.markdown("---")
+                
+                col1, col2 = st.columns(2)
+                col1.metric("Output Resolution", f"{new_width}x{new_height}")
+                col2.metric("Frames Processed", processed_frames)
+                
+                col1, col2 = st.columns(2)
+                col1.metric("Output FPS", f"{output_fps:.1f}")
+                file_size = os.path.getsize(output_path) / (1024 * 1024)
+                col2.metric("File Size", f"{file_size:.2f} MB")
+                
+                with open(output_path, "rb") as f:
+                    st.download_button(
+                        "📥 Download Processed Video",
+                        f.read(),
+                        "lane_detection_output.mp4",
+                        "video/mp4",
+                        use_container_width=True
+                    )
+                
+                os.unlink(output_path)
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
     
     os.unlink(temp_path)
 else:
