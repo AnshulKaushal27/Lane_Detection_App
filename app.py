@@ -6,23 +6,14 @@ import cv2
 import numpy as np
 import tempfile
 
-# Lazy load TensorFlow ONLY when model is needed
+# Load TensorFlow
 @st.cache_resource
 def load_tensorflow():
-    import subprocess
-    import sys
-    try:
-        import tensorflow as tf
-        return tf
-    except ImportError:
-        st.warning("Installing TensorFlow (first run only)...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "tensorflow-cpu==2.13.0", "-q"])
-        import tensorflow as tf
-        return tf
+    import tensorflow as tf
+    return tf
 
 @st.cache_resource
 def load_model():
-    tf = load_tensorflow()
     from tensorflow import keras
     
     model_path = 'best_lane_model_stage2.h5'
@@ -138,7 +129,7 @@ def process_video(video_path, model, progress_bar, status_text, alpha):
     return output_path, new_width, new_height, fps, frame_count
 
 # UI
-st.title("🛣️ Lane Detection with AI")
+st.title("🛣️ Lane Detection")
 st.markdown("---")
 
 col1, col2 = st.columns([1, 1])
