@@ -1,51 +1,42 @@
+#!/usr/bin/env python3
 import streamlit as st
 import cv2
 import numpy as np
 import tempfile
 import os
-from pathlib import Path
 
-# Lazy import for TensorFlow only when needed
-def load_tensorflow():
-    import tensorflow as tf
-    from tensorflow import keras
-    return keras
+# Load TensorFlow only when needed (lazy import)
+@st.cache_resource
+def load_model():
+    try:
+        from tensorflow import keras
+        model_path = 'best_lane_model_stage2.h5'
+        if not os.path.exists(model_path):
+            st.error("❌ Model file not found: best_lane_model_stage2.h5")
+            st.stop()
+        
+        with st.spinner("Loading model..."):
+            model = keras.models.load_model(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        st.stop()
 
-# Page configuration
+# PAGE CONFIG
 st.set_page_config(
     page_title="Lane Detection",
     page_icon="🛣️",
     layout="wide"
 )
 
-# ========================================
 # CONFIG
-# ========================================
 IMG_HEIGHT = 256
 IMG_WIDTH = 512
 CONFIDENCE_THRESHOLD = 0.5
 MAX_VIDEO_WIDTH = 1280
 MAX_VIDEO_HEIGHT = 720
 
-# ========================================
-# LOAD MODEL
-# ========================================
-@st.cache_resource
-def load_model():
-    keras = load_tensorflow()
-    model_path = 'best_lane_model_stage2.h5'
-    if not os.path.exists(model_path):
-        st.error("❌ Model file not found: best_lane_model_stage2.h5")
-        st.stop()
-    
-    with st.spinner("Loading model..."):
-        model = keras.models.load_model(model_path)
-    return model
-
-# ========================================
 # FUNCTIONS
-# ========================================
-
 def resize_frame(frame, max_width=1280, max_height=720):
     height, width = frame.shape[:2]
     aspect_ratio = width / height
@@ -170,10 +161,7 @@ def process_video(video_path, model, progress_bar, status_text, alpha):
     return output_path, new_width, new_height, fps, frame_count
 
 
-# ========================================
 # UI
-# ========================================
-
 st.title("🛣️ Lane Detection with AI")
 st.markdown("---")
 
@@ -192,23 +180,23 @@ if uploaded_file:
         tmp.write(uploaded_file.read())
         temp_path = tmp.name
     
-    cap = cv2.VideoCapture(temp_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps <= 0:
-        fps = 30
-    cap.release()
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Resolution", f"{width}x{height}")
-    col2.metric("Frames", total_frames)
-    col3.metric("Duration", f"{total_frames/fps:.1f}s")
-    col4.metric("FPS", f"{fps:.1f}")
-    
-    if st.button("🚀 Process Video", use_container_width=True, type="primary"):
-        try:
+    try:
+        cap = cv2.VideoCapture(temp_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps <= 0:
+            fps = 30
+        cap.release()
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Resolution", f"{width}x{height}")
+        col2.metric("Frames", total_frames)
+        col3.metric("Duration", f"{total_frames/fps:.1f}s")
+        col4.metric("FPS", f"{fps:.1f}")
+        
+        if st.button("🚀 Process Video", use_container_width=True, type="primary"):
             model = load_model()
             
             st.markdown("---")
@@ -247,9 +235,14 @@ if uploaded_file:
                     )
                 
                 os.unlink(output_path)
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
     
-    os.unlink(temp_path)
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+    
+    finally:
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
 else:
     st.info("👆 Upload a video to get started")
