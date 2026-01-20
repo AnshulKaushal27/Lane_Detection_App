@@ -41,5 +41,5 @@ Post-processing: Thresholding + green overlay
 The model predicts a pixel-wise lane mask, which is resized back to the original frame resolution and blended with the input video.
 
 ## 🎥 Demo
-![Lane Detection Demo](assets/demo.gif)
+![Lane Detection Demo](assets/output_colored.gif)
 
